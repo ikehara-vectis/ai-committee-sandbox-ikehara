@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  position  String?
+  techLevel String   @default("A") // A-G
+  bizLevel  String   @default("a") // a-e
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checklistResults ChecklistResult[]
+  testAnswers      TestAnswer[]
+  progressRecords  ProgressRecord[]
+
+  @@map("users")
+}
+
+model ChecklistItem {
+  id          String  @id @default(cuid())
+  level       String  // "a-b", "b-c", "c-d", "d-e", "A-B", etc.
+  title       String
+  description String
+  reference   String? // 引用元
+  order       Int
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  checklistResults ChecklistResult[]
+
+  @@map("checklist_items")
+}
+
+model ChecklistResult {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String
+  isChecked Boolean  @default(false)
+  notes     String?
+  checkedAt DateTime @default(now())
+
+  user User          @relation(fields: [userId], references: [id])
+  item ChecklistItem @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+  @@map("checklist_results")
+}
+
+model TestQuestion {
+  id          String    @id @default(cuid())
+  level       String    // "a-b", "b-c", etc.
+  type        TestType  // LIGHT_SHORT, LIGHT_CHOICE, LIGHT_CASE, HEAVY_SCENARIO
+  title       String
+  content     String    // 問題文
+  options     String?   // 選択肢（JSON形式）
+  correctAnswer String? // 正解
+  maxScore    Int       @default(30)
+  timeLimit   Int?      // 制限時間（分）
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  testAnswers TestAnswer[]
+
+  @@map("test_questions")
+}
+
+model TestAnswer {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  answer     String
+  score      Int?
+  feedback   String?
+  submittedAt DateTime @default(now())
+
+  user     User         @relation(fields: [userId], references: [id])
+  question TestQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([userId, questionId])
+  @@map("test_answers")
+}
+
+model ProgressRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  techLevel   String   // A-G
+  bizLevel    String   // a-e
+  totalScore  Int      @default(0)
+  improvement String?
+  recordDate  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("progress_records")
+}
+
+enum TestType {
+  LIGHT_SHORT   // 短文記述 + AI判定
+  LIGHT_CHOICE  // 場面選択 + 理由記述
+  LIGHT_CASE    // ケーススタディ + 要点抽出
+  HEAVY_SCENARIO // 重いテスト（記述式ケーススタディ）
+}
